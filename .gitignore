@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+out.js
+index.js
+tgmon
+
+# LevelDB data stores
+*.ldb/
+*.ldb
+
+# Local secrets / config (never commit a real config)
+telegram-auth.conf
+*.conf
+!config.example.conf
+
+# Logs & misc
+*.log
+.DS_Store

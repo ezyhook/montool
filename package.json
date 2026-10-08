@@ -1,0 +1,22 @@
+{
+  "name": "montool",
+  "version": "1.0.0",
+  "description": "Telegram server monitor bot — Bun + grammy",
+  "type": "module",
+  "repository": "github:ezyhook/montool",
+  "license": "MIT",
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev":   "bun --watch run index.ts",
+    "build": "bun build ./index.ts --compile --outfile tgmon"
+  },
+  "dependencies": {
+    "grammy":        "^1.31.0",
+    "classic-level": "^1.4.1",
+    "sharp":         "^0.33.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.5.4"
+  }
+}
