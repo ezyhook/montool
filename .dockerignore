@@ -1,0 +1,15 @@
+.git
+node_modules
+*.ldb
+*.ldb/
+out.js
+index.js
+tgmon
+*.log
+telegram-auth.conf
+*.conf
+!config.example.conf
+Dockerfile
+.dockerignore
+.gitignore
+README.md
