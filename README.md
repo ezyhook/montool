@@ -191,3 +191,17 @@ services:
     cap_drop:
       - ALL
 ```
+
+## Troubleshooting
+
+**`sharp` fails to load / "require v2 microarchitecture"** — some VPS expose a
+baseline `x86-64-v1` CPU. montool pins `sharp@0.32`, whose prebuilt binaries run
+on generic x86-64, specifically to support such hosts. If you still hit a
+`sharp` load error on an unusual CPU/arch, build it against the system libvips:
+
+```bash
+sudo apt-get install -y build-essential libvips-dev pkg-config
+cd montool && rm -rf node_modules
+SHARP_FORCE_GLOBAL_LIBVIPS=1 npm install
+sudo systemctl restart montool
+```

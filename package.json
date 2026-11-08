@@ -19,14 +19,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "grammy": "^1.31.0",
     "classic-level": "^1.4.1",
-    "sharp": "^0.33.4"
+    "grammy": "^1.31.0",
+    "sharp": "^0.32.6"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "esbuild": "^0.24.0",
     "tsx": "^4.19.2",
-    "@types/node": "^22.0.0",
     "typescript": "^5.5.4"
   }
 }
