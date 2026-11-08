@@ -217,7 +217,10 @@ if [[ "$RUNTIME" == "bun" ]]; then
   EXEC_START="${BUN_BIN} ${INSTALL_DIR}/index.ts"
 else
   log "Installing dependencies (npm)..."
-  if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+  # Use `npm install` (not `npm ci`): it re-resolves platform-specific optional
+  # deps (sharp's prebuilt binary) for THIS host's os/arch/libc. `npm ci` can
+  # skip them when the committed lockfile was generated on another platform.
+  npm install
   log "Building bundle (esbuild)..."
   npm run build
   [[ -f dist/index.js ]] || { err "build failed: dist/index.js not created"; exit 1; }

@@ -25,7 +25,8 @@ if [[ "$RUNTIME" == "bun" ]]; then
   "$BUN_BIN" install
 else
   log "Installing dependencies (npm)..."
-  if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+  # npm install (not ci): re-resolves platform-specific optional deps (sharp).
+  npm install
   log "Rebuilding bundle (esbuild)..."
   npm run build
   [[ -f dist/index.js ]] || { echo "[!] build failed: dist/index.js not created" >&2; exit 1; }
