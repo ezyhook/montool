@@ -121,8 +121,19 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     fi
   fi
   DETECTED_IP="$(ip route get 8.8.8.8 2>/dev/null | sed -n '/src/{s/.*src *\([^ ]*\).*/\1/p;q}')"
-  GEN_SECRET="$(openssl rand -hex 16 2>/dev/null || head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   AGENT_BIND="${AGENT_BIND:-0.0.0.0:9797}"
+
+  # Shared secret — MUST be identical on the master and every agent (the master
+  # sends it as the x-auth header; the agent compares it). On the master, leave
+  # it empty to generate one; then reuse that same value on each agent.
+  if [[ -z "${AGENT_SECRET:-}" && -t 0 ]]; then
+    read -rp "AGENT_SECRET (same on master+agents; empty = generate): " AGENT_SECRET
+  fi
+  if [[ -z "${AGENT_SECRET:-}" ]]; then
+    AGENT_SECRET="$(openssl rand -hex 24 2>/dev/null || head -c24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+    log "Generated AGENT_SECRET=${AGENT_SECRET}"
+    log "Reuse this SAME secret on every other host (master + all agents)."
+  fi
 
   # Forum topic — one per host, named "<label>-<ip>", so each host posts to its
   # own thread. Needs a forum supergroup where the bot is an admin that can
@@ -163,7 +174,7 @@ ENABLE_POLLING=${ENABLE_POLLING}
 SEND_WELCOME=0
 LEADER_THREAD_ID=${LEADER_THREAD_ID}
 DISPATCH_MAP={}
-AGENT_SECRET=${AGENT_SECRET:-$GEN_SECRET}
+AGENT_SECRET=${AGENT_SECRET}
 AGENT_BIND=${AGENT_BIND:-0.0.0.0:9797}
 
 NET_IFACE=
