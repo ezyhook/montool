@@ -163,8 +163,8 @@ export const BOT_COMMANDS = [
 export async function setBotCommands(commands: typeof BOT_COMMANDS): Promise<void> {
   const scopes = [
     { type: "chat", chat_id: cfg().CHAT_ID },
-    { command: "all_group_chats"   },
-    { command: "all_private_chats" },
+    { type: "all_group_chats"   },
+    { type: "all_private_chats" },
   ];
   for (const scope of scopes) {
     await tgCall("setMyCommands", { commands, scope });

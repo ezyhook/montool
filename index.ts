@@ -1,5 +1,6 @@
 import { createServer } from "http";
 import { Bot } from "grammy";
+import { sleep } from "./runtime";
 import { cfg as loadCfg } from "./config";
 import { startMonitorLoop } from "./monitor";
 import { startNetCollector } from "./net";
@@ -17,6 +18,9 @@ let bot: Bot | null = null;
 
 if (cfg.ENABLE_POLLING) {
   bot = new Bot(cfg.BOT_TOKEN);
+
+  // Don't let an error thrown inside a handler crash the process.
+  bot.catch((err) => console.error("[bot] handler error:", (err as any)?.error ?? err));
 
   bot.on("message:text", (ctx) => {
     const text     = ctx.message.text?.trim() ?? "";
@@ -113,6 +117,40 @@ function startAgentServer(): void {
   server.listen(port, host, () => console.log(`[agent] HTTP server listening on ${host}:${port}`));
 }
 
+// ── Resilient long-polling (LEADER) ──────────────────────────────────────────
+// A polling error (notably 409 Conflict from a second poller) must not crash the
+// process into a tight systemd restart loop — fast restarts re-trigger 409 while
+// Telegram still holds the previous long-poll slot. Retry in-process with a pause
+// so a transient conflict clears on its own.
+async function runPolling(): Promise<void> {
+  for (;;) {
+    try {
+      await bot!.start({
+        drop_pending_updates: true,
+        onStart: () => console.log("[bot] polling started"),
+      });
+      return; // start() resolves only on an intentional stop
+    } catch (e: any) {
+      const code = e?.error_code;
+      if (code === 401) {
+        console.error("[bot] 401 Unauthorized — check BOT_TOKEN. Exiting.");
+        process.exit(1);
+      }
+      if (code === 409) {
+        console.error(
+          "[bot] 409 Conflict — another process is polling this bot token. " +
+          "Run only ONE leader (ENABLE_POLLING=1) per token; other hosts must be agents " +
+          "(ENABLE_POLLING=0). Retrying in 35s."
+        );
+      } else {
+        console.error(`[bot] polling error (${code ?? "network"}): ${e?.description ?? e?.message ?? e}. Retrying in 35s.`);
+      }
+      try { await bot!.stop(); } catch {}
+      await sleep(35_000);
+    }
+  }
+}
+
 // ── MAIN ──────────────────────────────────────────────────────────────────────
 async function main() {
   const role = cfg.ENABLE_POLLING ? "LEADER" : "AGENT";
@@ -136,7 +174,7 @@ async function main() {
     await setBotCommands(BOT_COMMANDS);
 
     console.log("[bot] starting grammy polling...");
-    bot!.start({ onStart: () => console.log("[bot] polling started") });
+    await runPolling();
   } else {
     startAgentServer();
     await new Promise(() => {}); // keep alive
