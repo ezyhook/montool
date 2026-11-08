@@ -183,10 +183,6 @@ HEALTH_TIMEOUT=5
 EOF
   chmod 600 "$CONFIG_FILE"
   log "Config written to ${CONFIG_FILE}"
-  if [[ "$ROLE" == "slave" ]]; then
-    log "This host is a SLAVE. Register it on the master with:"
-    log "    ./add-agent.sh ${THREAD_ID:-<thread_id>} http://${DETECTED_IP:-<this-host-ip>}:${AGENT_BIND##*:}"
-  fi
 else
   log "Using existing config at ${CONFIG_FILE}"
 fi
@@ -237,3 +233,27 @@ systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
 systemctl restart "$SERVICE_NAME"
 log "Done. Status:"
 systemctl --no-pager --lines=5 status "$SERVICE_NAME" || true
+
+# ── Next steps: ready-to-paste agent registration line ────────────────────────
+conf_get() { grep -m1 "^$1=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2- | sed -E "s/^[\"']//; s/[\"']$//"; }
+CFG_THREAD="$(conf_get THREAD_ID)"
+CFG_IP="$(conf_get ip4)"
+CFG_BIND="$(conf_get AGENT_BIND)"
+CFG_POLL="$(conf_get ENABLE_POLLING)"
+CFG_PORT="${CFG_BIND##*:}"; [[ -z "$CFG_PORT" ]] && CFG_PORT=9797
+[[ -z "$CFG_IP" ]]     && CFG_IP="<this-host-ip>"
+[[ -z "$CFG_THREAD" ]] && CFG_THREAD="<thread_id>"
+
+echo
+echo "────────────────────────────────────────────────────────────"
+if [[ "$CFG_POLL" == "0" ]]; then
+  echo "This host is an AGENT. Register it on the MASTER by running there:"
+  echo
+  echo "    ./add-agent.sh ${CFG_THREAD} http://${CFG_IP}:${CFG_PORT}"
+else
+  echo "This host is the MASTER. Add each agent (run here) with:"
+  echo
+  echo "    ./add-agent.sh ${CFG_THREAD} http://${CFG_IP}:${CFG_PORT}"
+  echo "    (replace THREAD_ID and host:port with the agent's own values)"
+fi
+echo "────────────────────────────────────────────────────────────"
