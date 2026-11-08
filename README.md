@@ -38,19 +38,33 @@ installs dependencies, creates the config on first run, and installs a systemd
 service:
 
 ```bash
-# interactive (prompts for token + chat id if no config exists yet)
+# interactive (prompts for token, chat id and role)
 sudo ./install.sh
 
 # or non-interactive
-sudo BOT_TOKEN=123:abc CHAT_ID=-1001234567890 ./install.sh
+sudo BOT_TOKEN=123:abc CHAT_ID=-1001234567890 ROLE=master ./install.sh
 ```
+
+On first run the installer asks for the **host role**:
+
+- **master** — leader: polls Telegram and routes commands to agents
+  (`ENABLE_POLLING=1`). Run exactly one master per bot token.
+- **slave** — agent: no polling, serves commands over HTTP (`ENABLE_POLLING=0`).
+  After install, register it on the master:
+  `./add-agent.sh <THREAD_ID> http://<slave-ip>:9797`
+
+It also **creates a forum topic** named `<label>-<ip>` in the group and uses it
+as this host's `THREAD_ID`, so every host posts to its own thread. This needs a
+forum supergroup where the bot is an admin with "Manage topics". Disable with
+`CREATE_TOPIC=0`, or pass your own `THREAD_ID=...` to skip creation.
 
 ## First run (no config yet)
 
 Only `BOT_TOKEN` and `CHAT_ID` are required to start; everything else has
 sensible defaults. There are three ways to provide a config:
 
-1. `./install.sh` generates `/etc/telegram-auth.conf` for you (prompts or env).
+1. `./install.sh` generates `/etc/telegram-auth.conf` for you (prompts or env,
+   including role and topic creation).
 2. Copy `config.example.conf` to `/etc/telegram-auth.conf` and edit it.
 3. Point the app at any file with `CONFIG_FILE=/path/to.conf` (env vars also
    work as a fallback for individual keys).
