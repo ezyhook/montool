@@ -45,13 +45,14 @@ sudo ./install.sh
 sudo BOT_TOKEN=123:abc CHAT_ID=-1001234567890 ROLE=master ./install.sh
 ```
 
-On first run the installer asks for the **host role**:
+On first run the installer prompts for a **host label** (default: hostname) and
+the **host role** (default: **slave**):
 
+- **slave** — agent: no polling, serves commands over HTTP (`ENABLE_POLLING=0`).
+  This is the default. After install, register it on the master:
+  `./add-agent.sh <THREAD_ID> http://<slave-ip>:9797`
 - **master** — leader: polls Telegram and routes commands to agents
   (`ENABLE_POLLING=1`). Run exactly one master per bot token.
-- **slave** — agent: no polling, serves commands over HTTP (`ENABLE_POLLING=0`).
-  After install, register it on the master:
-  `./add-agent.sh <THREAD_ID> http://<slave-ip>:9797`
 
 It also **creates a forum topic** named `<label>-<ip>` in the group and uses it
 as this host's `THREAD_ID`, so every host posts to its own thread. This needs a

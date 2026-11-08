@@ -13,7 +13,8 @@
 #   SERVICE_NAME  systemd unit name              (default: montool.service)
 #   RUNTIME       node | bun                     (default: auto-detect, prefers node)
 #   BUN_BIN       path to the bun binary         (default: $HOME/.bun/bin/bun)
-#   ROLE          master | slave                 (master = leader/polling; prompted)
+#   ROLE          master | slave                 (default: slave; prompted)
+#   LABEL         host label for messages/topic  (default: hostname; prompted)
 #   THREAD_ID     use this forum topic instead of creating one
 #   CREATE_TOPIC  1 = auto-create "<label>-<ip>" topic (default), 0 = skip
 #
@@ -93,22 +94,32 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   [[ -z "$BOT_TOKEN" || -z "$CHAT_ID" ]] && { err "BOT_TOKEN and CHAT_ID must not be empty"; exit 1; }
 
   # Role: master = leader (polls Telegram, routes to agents); slave = agent (HTTP).
+  # Default is slave — a deployment has many agents and exactly one master.
   ROLE="${ROLE:-}"
   if [[ -z "$ROLE" && -n "${ENABLE_POLLING:-}" ]]; then
     [[ "$ENABLE_POLLING" == "1" ]] && ROLE=master || ROLE=slave
   fi
   if [[ -z "$ROLE" ]]; then
-    if [[ -t 0 ]]; then read -rp "Host role [master/slave] (master = leader/polling) [master]: " ROLE
-    else ROLE=master; fi
+    if [[ -t 0 ]]; then read -rp "Host role [master/slave] (master = leader/polling) [slave]: " ROLE
+    else ROLE=slave; fi
   fi
   case "${ROLE,,}" in
-    master|leader|m|"") ROLE=master; ENABLE_POLLING=1 ;;
-    slave|agent|s)      ROLE=slave;  ENABLE_POLLING=0 ;;
+    slave|agent|s|"") ROLE=slave;  ENABLE_POLLING=0 ;;
+    master|leader|m)  ROLE=master; ENABLE_POLLING=1 ;;
     *) err "unknown role '${ROLE}' (use master or slave)"; exit 1 ;;
   esac
   log "Role: ${ROLE} (ENABLE_POLLING=${ENABLE_POLLING})"
 
-  HOST_LABEL="${LABEL:-$(hostname)}"
+  # Host label — shown in messages and used in the topic name "<label>-<ip>".
+  HOST_LABEL="${LABEL:-}"
+  if [[ -z "$HOST_LABEL" ]]; then
+    if [[ -t 0 ]]; then
+      read -rp "Host label [$(hostname)]: " HOST_LABEL
+      HOST_LABEL="${HOST_LABEL:-$(hostname)}"
+    else
+      HOST_LABEL="$(hostname)"
+    fi
+  fi
   DETECTED_IP="$(ip route get 8.8.8.8 2>/dev/null | sed -n '/src/{s/.*src *\([^ ]*\).*/\1/p;q}')"
   GEN_SECRET="$(openssl rand -hex 16 2>/dev/null || head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   AGENT_BIND="${AGENT_BIND:-0.0.0.0:9797}"
