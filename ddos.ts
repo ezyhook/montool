@@ -1,3 +1,4 @@
+import { sleep } from "./runtime";
 import { readFileSync } from "fs";
 import { execSync } from "child_process";
 import { sendText } from "./telegram";
@@ -262,7 +263,7 @@ export async function ddosStatusText(): Promise<string> {
   if (iface) {
     try {
       const s1 = readNetDev(iface);
-      await Bun.sleep(1000);
+      await sleep(1000);
       const s2 = readNetDev(iface);
       if (s1 && s2) {
         const r    = calcRates(s1, s2, 1.0);

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# montool update — rebuild from this checkout and restart the service.
+# montool update — refresh dependencies from this checkout and restart the service.
 # Run `git pull` first, then this script.
 #
-# Overrides: INSTALL_DIR, SERVICE_NAME, BUN_BIN (see install.sh).
+# Overrides: INSTALL_DIR, SERVICE_NAME, RUNTIME (node|bun), BUN_BIN (see install.sh).
 set -euo pipefail
 
 SERVICE_NAME="${SERVICE_NAME:-montool.service}"
@@ -10,15 +10,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="${INSTALL_DIR:-$SCRIPT_DIR}"
 BUN_BIN="${BUN_BIN:-$HOME/.bun/bin/bun}"
 
+RUNTIME="${RUNTIME:-}"
+if [[ -z "$RUNTIME" ]]; then
+  if command -v node >/dev/null 2>&1; then RUNTIME=node
+  elif command -v bun >/dev/null 2>&1 || [[ -x "$BUN_BIN" ]]; then RUNTIME=bun
+  else RUNTIME=node; fi
+fi
+
 log() { echo "[+] $*"; }
 
 cd "$INSTALL_DIR"
-log "Installing dependencies..."
-"$BUN_BIN" install
-log "Rebuilding index.js..."
-"$BUN_BIN" build ./index.ts --production --target=bun --outfile=index.js
-[[ -f index.js ]] || { echo "[!] build failed: index.js not created" >&2; exit 1; }
-log "Build OK: $(du -sh index.js | cut -f1)"
+if [[ "$RUNTIME" == "bun" ]]; then
+  log "Installing dependencies (bun)..."
+  "$BUN_BIN" install
+else
+  log "Installing dependencies (npm)..."
+  if [[ -f package-lock.json ]]; then npm ci --omit=dev; else npm install --omit=dev; fi
+fi
 
 log "Restarting ${SERVICE_NAME}..."
 systemctl restart "$SERVICE_NAME"

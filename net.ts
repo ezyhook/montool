@@ -1,3 +1,4 @@
+import { sleep } from "./runtime";
 import { readFileSync } from "fs";
 import { dbNet, formatStamp, cleanupOld } from "./db";
 import { getIface, mtTick, ensureBaseIfMissing, getIfaceCounters, writeMonthCheckpoint, cleanupOldCheckpoints } from "./quota";
@@ -29,7 +30,7 @@ export async function startNetCollector() {
   // if (!ifn) { console.error("[net] no iface found"); return; }
   if (!ifn) {
     console.error("[net] no iface found, retry in 30s");
-    await Bun.sleep(30_000);
+    await sleep(30_000);
     return startNetCollector(); // recursive retry
     }
   console.log(`[net] using iface=${ifn}`);
@@ -42,7 +43,7 @@ export async function startNetCollector() {
   let prevT = Date.now();
 
   // wait one interval before first measurement
-  await Bun.sleep(INTERVAL_SEC * 1000);
+  await sleep(INTERVAL_SEC * 1000);
 
   setInterval(async () => {
     try {

@@ -1,24 +1,22 @@
 # ---------- Stage 1: builder ----------
-# Use a Bun that understands the text bun.lock (1.2+); the `1` tag floats to
-# the latest 1.x release.
-FROM oven/bun:1 AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Toolchain for building native addons (classic-level, via node-gyp-build).
+# Toolchain in case a native addon (classic-level / sharp) lacks a prebuilt binary.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 make g++ \
  && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies against the committed lockfile first (better caching).
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+# Install production dependencies against the committed lockfile (tsx included).
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # Application sources (node_modules is excluded via .dockerignore).
 COPY . .
 
 # ---------- Stage 2: runtime ----------
-FROM oven/bun:1
+FROM node:22-slim
 
 WORKDIR /app
 
@@ -30,11 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /app /app
 
-RUN chown -R bun:bun /app
-USER bun
-
 ENV NODE_ENV=production
 ENV FONTCONFIG_PATH=/etc/fonts
 
-# Bun runs the TypeScript entrypoint directly (types are stripped at load).
-CMD ["bun", "index.ts"]
+# tsx runs the TypeScript entrypoint directly, no separate build step.
+CMD ["node", "node_modules/.bin/tsx", "index.ts"]

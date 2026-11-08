@@ -8,9 +8,10 @@
 #
 # Useful overrides (all optional):
 #   CONFIG_FILE   target config path            (default: /etc/telegram-auth.conf)
-#   INSTALL_DIR   where the app is built/run     (default: this script's directory)
+#   INSTALL_DIR   where the app is installed/run (default: this script's directory)
 #   RUN_USER      systemd service user           (default: root)
 #   SERVICE_NAME  systemd unit name              (default: montool.service)
+#   RUNTIME       node | bun                     (default: auto-detect, prefers node)
 #   BUN_BIN       path to the bun binary         (default: $HOME/.bun/bin/bun)
 #   THREAD_ID     optional forum topic id
 #   ENABLE_POLLING 1=leader (default), 0=agent
@@ -25,6 +26,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="${INSTALL_DIR:-$SCRIPT_DIR}"
 RUN_USER="${RUN_USER:-root}"
 BUN_BIN="${BUN_BIN:-$HOME/.bun/bin/bun}"
+
+# Runtime: default to Node, fall back to Bun only if Node is absent.
+RUNTIME="${RUNTIME:-}"
+if [[ -z "$RUNTIME" ]]; then
+  if command -v node >/dev/null 2>&1; then RUNTIME=node
+  elif command -v bun >/dev/null 2>&1 || [[ -x "$BUN_BIN" ]]; then RUNTIME=bun
+  else RUNTIME=node; fi
+fi
 
 log() { echo "[+] $*"; }
 err() { echo "[!] $*" >&2; }
@@ -53,10 +62,13 @@ ensure_pkg() {
   fi
 }
 
-if [[ ! -x "$BUN_BIN" ]]; then
-  log "Installing Bun..."
-  curl -fsSL https://bun.sh/install | bash
+if [[ "$RUNTIME" == "bun" ]]; then
+  [[ -x "$BUN_BIN" ]] || { log "Installing Bun..."; curl -fsSL https://bun.sh/install | bash; }
+else
+  command -v node >/dev/null 2>&1 || { err "Node.js not found — install Node >= 20 first"; exit 1; }
+  command -v npm  >/dev/null 2>&1 || { err "npm not found — install npm first"; exit 1; }
 fi
+log "Runtime: ${RUNTIME}"
 
 ensure_pkg conntrack        "command -v conntrack"
 ensure_pkg fontconfig       "dpkg -l fontconfig        2>/dev/null | grep -q '^ii'"
@@ -132,14 +144,21 @@ else
   log "Using existing config at ${CONFIG_FILE}"
 fi
 
-# ── Build ──────────────────────────────────────────────────────────────────────
+# ── Install dependencies & resolve the start command ──────────────────────────
 cd "$INSTALL_DIR"
-log "Installing dependencies..."
-"$BUN_BIN" install
-log "Building index.js..."
-"$BUN_BIN" build ./index.ts --production --target=bun --outfile=index.js
-[[ -f index.js ]] || { err "build failed: index.js not created"; exit 1; }
-log "Build OK: $(du -sh index.js | cut -f1)"
+if [[ "$RUNTIME" == "bun" ]]; then
+  log "Installing dependencies (bun)..."
+  "$BUN_BIN" install
+  EXEC_START="${BUN_BIN} ${INSTALL_DIR}/index.ts"
+else
+  log "Installing dependencies (npm)..."
+  if [[ -f package-lock.json ]]; then npm ci --omit=dev; else npm install --omit=dev; fi
+  NODE_BIN="$(command -v node)"
+  # tsx runs the TypeScript entrypoint on Node without a separate build step.
+  # Invoke the tsx CLI by path so it resolves regardless of the service cwd.
+  EXEC_START="${NODE_BIN} ${INSTALL_DIR}/node_modules/.bin/tsx ${INSTALL_DIR}/index.ts"
+fi
+log "Start command: ${EXEC_START}"
 
 # ── systemd service ──────────────────────────────────────────────────────────
 log "Installing ${SERVICE_NAME}..."
@@ -150,7 +169,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=${BUN_BIN} index.js
+ExecStart=${EXEC_START}
 User=${RUN_USER}
 WorkingDirectory=${INSTALL_DIR}
 Environment=CONFIG_FILE=${CONFIG_FILE}

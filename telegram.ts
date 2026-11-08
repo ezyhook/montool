@@ -1,3 +1,4 @@
+import { sleep } from "./runtime";
 import { InlineKeyboard, Keyboard } from "grammy";
 import { cfg } from "./config";
 
@@ -5,7 +6,7 @@ import { cfg } from "./config";
 let _lastSend = 0;
 async function throttle() {
   const wait = 1200 - (Date.now() - _lastSend);
-  if (wait > 0) await Bun.sleep(wait);
+  if (wait > 0) await sleep(wait);
   _lastSend = Date.now();
 }
 
@@ -33,7 +34,7 @@ async function tgCall(method: string, body: Record<string, unknown>): Promise<an
         try { retryAfter = ((await resp.json()) as any)?.parameters?.retry_after ?? 1; } catch {}
         const wait = retryAfter * 1000 + Math.random() * 500;
         console.warn(`[tg] ${status} on ${method}, retry in ${(wait / 1000).toFixed(1)}s`);
-        await Bun.sleep(wait);
+        await sleep(wait);
         if (++attempt > 5) { console.error(`[tg] too many retries on ${method}`); return null; }
         continue;
       }
@@ -42,7 +43,7 @@ async function tgCall(method: string, body: Record<string, unknown>): Promise<an
       return null;
     } catch (e: any) {
       if (++attempt > 5) { console.error(`[tg] network error on ${method}:`, e?.message); return null; }
-      await Bun.sleep(Math.min(2 ** attempt * 1000, 30_000) + Math.random() * 500);
+      await sleep(Math.min(2 ** attempt * 1000, 30_000) + Math.random() * 500);
     }
   }
 }

@@ -1,3 +1,4 @@
+import { createServer } from "http";
 import { Bot } from "grammy";
 import { cfg as loadCfg } from "./config";
 import { startMonitorLoop } from "./monitor";
@@ -70,43 +71,46 @@ async function forwardToAgent(url: string, cmd: string): Promise<void> {
   }
 }
 
-// ── HTTP agent server (Bun.serve) ─────────────────────────────────────────────
+// ── HTTP agent server (node:http — runs on both Node and Bun) ─────────────────
 function startAgentServer(): void {
   const [host, portStr] = cfg.AGENT_BIND.split(":");
   const port = parseInt(portStr, 10);
 
-  Bun.serve({
-    hostname: host,
-    port,
-    async fetch(req) {
-      const auth = req.headers.get("x-auth");
-      if (auth !== cfg.AGENT_SECRET)
-        return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const server = createServer((req, res) => {
+    const send = (status: number, obj: unknown) => {
+      res.writeHead(status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(obj));
+    };
 
-      const url = new URL(req.url);
+    if (req.headers["x-auth"] !== cfg.AGENT_SECRET)
+      return send(401, { ok: false, error: "unauthorized" });
 
-      if (url.pathname === "/health" && req.method === "GET") {
-        return Response.json({
-          ok:   true,
-          host: cfg.HOST_NAME,
-          ip:   cfg.IP,
-          time: new Date().toISOString(),
-        });
-      }
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
-      if (url.pathname === "/handle" && req.method === "POST") {
+    if (url.pathname === "/health" && req.method === "GET") {
+      return send(200, { ok: true, host: cfg.HOST_NAME, ip: cfg.IP, time: new Date().toISOString() });
+    }
+
+    if (url.pathname === "/handle" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 1_000_000) req.destroy(); // cap request size
+      });
+      req.on("end", () => {
         let cmd = "";
-        try { cmd = ((await req.json()) as any).cmd?.trim() ?? ""; } catch {}
-        if (!cmd) return Response.json({ ok: false, error: "empty cmd" });
+        try { cmd = (JSON.parse(body) as any).cmd?.trim() ?? ""; } catch {}
+        if (!cmd) return send(200, { ok: false, error: "empty cmd" });
         handleCommand(cmd).catch(console.error);
-        return Response.json({ ok: true });
-      }
+        send(200, { ok: true });
+      });
+      return;
+    }
 
-      return Response.json({ ok: false, error: "not found" }, { status: 404 });
-    },
+    return send(404, { ok: false, error: "not found" });
   });
 
-  console.log(`[agent] HTTP server listening on ${host}:${port}`);
+  server.listen(port, host, () => console.log(`[agent] HTTP server listening on ${host}:${port}`));
 }
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────

@@ -1,25 +1,36 @@
-# montool — Telegram Server Monitor (Bun + grammy)
+# montool — Telegram Server Monitor (Node or Bun + grammy)
 
-A full port of a Python server-monitoring script to **Bun** + **grammy**.
+A full port of a Python server-monitoring script to **TypeScript** + **grammy**.
+Runs on **Node.js** (via [tsx](https://tsx.is), no build step) or **Bun**.
 
 ## Requirements
 
-- [Bun](https://bun.sh) ≥ 1.1
+- [Node.js](https://nodejs.org) ≥ 20 **or** [Bun](https://bun.sh) ≥ 1.1
 - Linux (reads `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, etc.)
 - `/etc/telegram-auth.conf` — config file (see below)
 
 ## Quick start
 
+On Node:
+
 ```bash
 git clone https://github.com/ezyhook/montool.git
 cd montool
-bun install
+npm install
 # minimal config: Telegram bot token + chat id
-CONFIG_FILE=./telegram-auth.conf bun run index.ts   # dev run (see first-run below)
+CONFIG_FILE=./telegram-auth.conf npm start   # runs `tsx index.ts`
 ```
 
-For a server, use the installer — it builds from this checkout, creates the
-config on first run, and installs a systemd service:
+On Bun:
+
+```bash
+bun install
+CONFIG_FILE=./telegram-auth.conf bun run index.ts
+```
+
+For a server, use the installer — it auto-detects the runtime (prefers Node),
+installs dependencies, creates the config on first run, and installs a systemd
+service:
 
 ```bash
 # interactive (prompts for token + chat id if no config exists yet)

@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { dbNet, formatStamp, parseStamp } from "./db";
 
 // ── Key helpers ──────────────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ export async function lastMonthPeak(
 // ── Interface counters from /proc/net/dev ────────────────────────────────────
 export async function getIfaceCounters(ifn: string): Promise<[number, number] | null> {
   try {
-    const text = await Bun.file("/proc/net/dev").text();
+    const text = readFileSync("/proc/net/dev", "utf-8");
     for (const line of text.split("\n")) {
       const idx = line.indexOf(":");
       if (idx < 0 || line.slice(0, idx).trim() !== ifn) continue;
@@ -116,7 +117,7 @@ export async function getIfaceCounters(ifn: string): Promise<[number, number] | 
 // ── Default iface from /proc/net/route ────────────────────────────────────────
 export async function pickDefaultIface(): Promise<string> {
   try {
-    const text = await Bun.file("/proc/net/route").text();
+    const text = readFileSync("/proc/net/route", "utf-8");
     for (const line of text.split("\n").slice(1)) {
       const p = line.trim().split(/\s+/);
       if (p.length >= 11) {
