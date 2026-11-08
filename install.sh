@@ -15,6 +15,7 @@
 #   BUN_BIN       path to the bun binary         (default: $HOME/.bun/bin/bun)
 #   ROLE          master | slave                 (default: slave; prompted)
 #   LABEL         host label for messages/topic  (default: hostname; prompted)
+#   AGENT_SECRET  shared x-auth secret           (prompted; same on master+agents)
 #   THREAD_ID     use this forum topic instead of creating one
 #   CREATE_TOPIC  1 = auto-create "<label>-<ip>" topic (default), 0 = skip
 #
@@ -124,15 +125,16 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   AGENT_BIND="${AGENT_BIND:-0.0.0.0:9797}"
 
   # Shared secret — MUST be identical on the master and every agent (the master
-  # sends it as the x-auth header; the agent compares it). On the master, leave
-  # it empty to generate one; then reuse that same value on each agent.
-  if [[ -z "${AGENT_SECRET:-}" && -t 0 ]]; then
-    read -rp "AGENT_SECRET (same on master+agents; empty = generate): " AGENT_SECRET
-  fi
+  # sends it as the x-auth header; the agent compares it). Entered by hand so the
+  # same value is set on every host. (tip: generate one with: openssl rand -hex 24)
   if [[ -z "${AGENT_SECRET:-}" ]]; then
-    AGENT_SECRET="$(openssl rand -hex 24 2>/dev/null || head -c24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-    log "Generated AGENT_SECRET=${AGENT_SECRET}"
-    log "Reuse this SAME secret on every other host (master + all agents)."
+    if [[ -t 0 ]]; then
+      while [[ -z "${AGENT_SECRET:-}" ]]; do
+        read -rp "AGENT_SECRET (same value on master + all agents): " AGENT_SECRET
+      done
+    else
+      err "AGENT_SECRET is required (set it via env or run interactively)"; exit 1
+    fi
   fi
 
   # Forum topic — one per host, named "<label>-<ip>", so each host posts to its
