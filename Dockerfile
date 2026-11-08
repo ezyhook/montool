@@ -8,9 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 make g++ \
  && rm -rf /var/lib/apt/lists/*
 
-# Install all deps (incl. esbuild). `npm install` (not `npm ci`) so sharp's
-# platform-specific prebuilt binary resolves for the image's os/arch/libc.
-COPY package.json package-lock.json ./
+# Install all deps (incl. esbuild). `npm install` resolves sharp's platform
+# prebuilt for the image's os/arch/libc (no lockfile is committed on purpose).
+COPY package.json ./
 RUN npm install
 
 # Build the single-file bundle, then drop dev dependencies for a lean runtime.
