@@ -8,12 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 make g++ \
  && rm -rf /var/lib/apt/lists/*
 
-# Install production dependencies against the committed lockfile (tsx included).
+# Install all deps (incl. esbuild) against the committed lockfile.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-# Application sources (node_modules is excluded via .dockerignore).
+# Build the single-file bundle, then drop dev dependencies for a lean runtime.
 COPY . .
+RUN npm run build \
+ && [ -f dist/index.js ] \
+ && npm prune --omit=dev
 
 # ---------- Stage 2: runtime ----------
 FROM node:22-slim
@@ -31,5 +34,5 @@ COPY --from=builder /app /app
 ENV NODE_ENV=production
 ENV FONTCONFIG_PATH=/etc/fonts
 
-# tsx runs the TypeScript entrypoint directly, no separate build step.
-CMD ["node", "node_modules/.bin/tsx", "index.ts"]
+# Run the precompiled bundle: fastest startup, lowest memory.
+CMD ["node", "dist/index.js"]

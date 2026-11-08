@@ -18,8 +18,13 @@ git clone https://github.com/ezyhook/montool.git
 cd montool
 npm install
 # minimal config: Telegram bot token + chat id
-CONFIG_FILE=./telegram-auth.conf npm start   # runs `tsx index.ts`
+CONFIG_FILE=./telegram-auth.conf npm start   # builds dist/index.js, then runs it
 ```
+
+`npm start` compiles a single-file bundle (`dist/index.js`) with esbuild and runs
+it on plain Node — fastest startup and lowest memory. For iterating, use
+`npm run dev` (tsx watch, no build step). On a server the installer builds once
+and the service runs `node dist/index.js` directly.
 
 On Bun:
 

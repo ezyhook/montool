@@ -25,7 +25,11 @@ if [[ "$RUNTIME" == "bun" ]]; then
   "$BUN_BIN" install
 else
   log "Installing dependencies (npm)..."
-  if [[ -f package-lock.json ]]; then npm ci --omit=dev; else npm install --omit=dev; fi
+  if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+  log "Rebuilding bundle (esbuild)..."
+  npm run build
+  [[ -f dist/index.js ]] || { echo "[!] build failed: dist/index.js not created" >&2; exit 1; }
+  npm prune --omit=dev
 fi
 
 log "Restarting ${SERVICE_NAME}..."

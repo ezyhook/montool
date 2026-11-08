@@ -152,11 +152,15 @@ if [[ "$RUNTIME" == "bun" ]]; then
   EXEC_START="${BUN_BIN} ${INSTALL_DIR}/index.ts"
 else
   log "Installing dependencies (npm)..."
-  if [[ -f package-lock.json ]]; then npm ci --omit=dev; else npm install --omit=dev; fi
+  if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+  log "Building bundle (esbuild)..."
+  npm run build
+  [[ -f dist/index.js ]] || { err "build failed: dist/index.js not created"; exit 1; }
+  log "Pruning dev dependencies..."
+  npm prune --omit=dev
   NODE_BIN="$(command -v node)"
-  # tsx runs the TypeScript entrypoint on Node without a separate build step.
-  # Invoke the tsx CLI by path so it resolves regardless of the service cwd.
-  EXEC_START="${NODE_BIN} ${INSTALL_DIR}/node_modules/.bin/tsx ${INSTALL_DIR}/index.ts"
+  # Run the precompiled bundle: fastest startup, lowest memory (no tsx/esbuild).
+  EXEC_START="${NODE_BIN} ${INSTALL_DIR}/dist/index.js"
 fi
 log "Start command: ${EXEC_START}"
 

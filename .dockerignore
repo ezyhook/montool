@@ -13,3 +13,4 @@ Dockerfile
 .dockerignore
 .gitignore
 README.md
+dist
